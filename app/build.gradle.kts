@@ -13,7 +13,7 @@ android {
     defaultConfig {
         applicationId = "com.example.cnnmodelandimu"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -30,14 +30,24 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+        jniLibs {
+            // This is often required when using select-tf-ops
+            useLegacyPackaging = true
+        }
     }
 }
 
@@ -50,9 +60,19 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    // Replace the old org.tensorflow lines with these:
-    implementation("com.google.ai.edge.litert:litert:1.0.1")
-    implementation("com.google.ai.edge.litert:litert-support:1.0.1")
+    // 1. Core TFLite Runtime (Use 2.16.1, which is stable and modern)
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
+
+    // 2. Select TF Ops (REQUIRED for your LSTM model)
+    // This allows the app to run the specific LSTM math operations
+    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.16.1")
+
+    // 3. Load the Support library, but BLOCK it from bringing its own old TFLite
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4") {
+        exclude(group = "org.tensorflow", module = "tensorflow-lite")
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
+    }
+
     // 1. For AppCompatActivity
     implementation("androidx.appcompat:appcompat:1.6.1")
     // 2. For ViewModel and ViewModelProvider
