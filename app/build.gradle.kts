@@ -49,6 +49,10 @@ android {
             useLegacyPackaging = true
         }
     }
+
+    androidResources {
+        noCompress += "tflite"
+    }
 }
 
 dependencies {

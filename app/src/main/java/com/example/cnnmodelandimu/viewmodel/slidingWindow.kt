@@ -18,6 +18,18 @@ import java.util.*
 enum class RespirationStatus { NORMAL, ABNORMAL }
 
 class RespirationViewModel(application: Application) : AndroidViewModel(application) {
+    // =========================================================================
+    // 1. GLOBAL SCALER PARAMETERS (Exported from Python's StandardScaler\scaler.pkl)
+    // =========================================================================
+    private val GLOBAL_MEAN = floatArrayOf(
+        -0.001210f, -0.004684f, 0.002343f, -0.003932f,
+        -0.001925f, -0.000765f, 0.002893f, -0.002304f,
+        -0.000184f, 0.004835f, 0.004762f)
+
+    private val GLOBAL_STD = floatArrayOf(
+        0.903795f, 0.910664f, 0.907171f, 0.895531f,
+        0.895260f, 0.899526f, 0.913691f, 0.908739f,
+        0.914527f, 0.893439f, 0.905339f)
 
     private val _status = MutableStateFlow(RespirationStatus.NORMAL)
     val status = _status.asStateFlow()
@@ -111,31 +123,43 @@ class RespirationViewModel(application: Application) : AndroidViewModel(applicat
         // --- STEP D: AGC LOGIC (Rolling Normalization) ---
         val input = Array(1) { Array(windowSize) { FloatArray(featureCount) } }
         for (j in 0 until featureCount) {
-            var sum = 0f
-            var sqSum = 0f
-            for (i in 0 until windowSize) {
-                sum += processedData[i][j]
-                sqSum += processedData[i][j] * processedData[i][j]
-            }
-            val mean = sum / windowSize
-            val variance = (sqSum / windowSize) - (mean * mean)
-            val std = sqrt(kotlin.math.max(variance, 1e-6f))
+            val mean = GLOBAL_MEAN[j]
+            val std = GLOBAL_STD[j]
 
-            // =========================================================
-            // NOISE FLOOR ADJUSTMENT
-            // =========================================================
-            // If the standard deviation (movement) is very low, it means
-            // a Breath Hold (Apnea) is happening.
-            // We use a high 'finalStd' (1.0) to keep the signal values tiny.
-            // Tiny values will be recognized by the AI as Apnea (Abnormal).
-            // =========================================================
-            val noiseFloor = 0.25f // Increase this if Breath Hold is still Green
-            val finalStd = if (std < noiseFloor) 1.0f else std
+            // Use a small epsilon (1e-6) to prevent division by zero, matching the Python code
+            val finalStd = if (std < 1e-6f) 1.0f else std
 
             for (i in 0 until windowSize) {
+                // Standard Z-Score Normalization: (value - mean) / std
                 input[0][i][j] = (processedData[i][j] - mean) / finalStd
             }
         }
+//        for (j in 0 until featureCount) {
+//            var sum = 0f
+//            var sqSum = 0f
+//            for (i in 0 until windowSize) {
+//                sum += processedData[i][j]
+//                sqSum += processedData[i][j] * processedData[i][j]
+//            }
+//            val mean = sum / windowSize
+//            val variance = (sqSum / windowSize) - (mean * mean)
+//            val std = sqrt(kotlin.math.max(variance, 1e-6f))
+//
+//            // =========================================================
+//            // NOISE FLOOR ADJUSTMENT
+//            // =========================================================
+//            // If the standard deviation (movement) is very low, it means
+//            // a Breath Hold (Apnea) is happening.
+//            // We use a high 'finalStd' (1.0) to keep the signal values tiny.
+//            // Tiny values will be recognized by the AI as Apnea (Abnormal).
+//            // =========================================================
+//            val noiseFloor = 0.25f // Increase this if Breath Hold is still Green
+//            val finalStd = if (std < noiseFloor) 1.0f else std
+//
+//            for (i in 0 until windowSize) {
+//                input[0][i][j] = (processedData[i][j] - mean) / finalStd
+//            }
+//        }
 
         // --- STEP E: TFLITE INFERENCE ---
         val output = Array(1) { FloatArray(1) }
