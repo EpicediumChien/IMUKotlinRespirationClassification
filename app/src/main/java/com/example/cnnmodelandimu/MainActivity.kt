@@ -171,6 +171,7 @@ class MainActivity : AppCompatActivity(), SerialInputOutputManager.Listener {
                 roll = rpy.roll, pitch = rpy.pitch, yaw = rpy.yaw
             )
 
+            Log.d("DATA_BRIDGE", "Sending record to ViewModel")
             // [CRITICAL] Send to AI Model (This was missing in your snippet!)
             respirationViewModel.processImuData(record)
         }
